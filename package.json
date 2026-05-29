@@ -1,0 +1,30 @@
+{
+  "name": "stockus-news-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "bot": "node --experimental-strip-types --no-warnings src/bot.ts",
+    "scrape": "node --experimental-strip-types --no-warnings src/index.ts",
+    "scrape:twitter": "node --experimental-strip-types --no-warnings src/index.ts --source twitter",
+    "scrape:web": "node --experimental-strip-types --no-warnings src/index.ts --source web",
+    "scrape:substack": "node --experimental-strip-types --no-warnings src/index.ts --source substack",
+    "briefing": "node --experimental-strip-types --no-warnings src/index.ts --mode briefing",
+    "briefing:save": "node --experimental-strip-types --no-warnings src/index.ts --mode briefing --save",
+    "send-briefing": "node --experimental-strip-types --no-warnings src/bot.ts --send-briefing"
+  },
+  "dependencies": {
+    "cloakbrowser": "^0.3.30",
+    "dotenv": "^16.4.7",
+    "fast-xml-parser": "^5.8.0",
+    "grammy": "^1.35.0",
+    "node-cron": "^4.2.1",
+    "openai": "^4.67.3",
+    "playwright-core": "^1.52.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

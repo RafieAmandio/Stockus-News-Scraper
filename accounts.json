@@ -1,0 +1,24 @@
+{
+  "twitter": [
+    "firstsquawk",
+    "financialjuice",
+    "Mayhem4Markets",
+    "Eliant_capital"
+  ],
+  "websites": [
+    "brookfield",
+    "capitalistletters",
+    "apolloacademy",
+    "goldmansachs"
+  ],
+  "substacks": [
+    "buybackcapital",
+    "mostlyborrowedideas",
+    "jerrycapital",
+    "stockanalysiscompilation",
+    "redwoodcapital",
+    { "name": "libertyrpf", "feedUrl": "https://www.libertyrpf.com/feed" },
+    "morganhousel",
+    { "name": "stratechery", "feedUrl": "https://stratechery.com/feed/" }
+  ]
+}
