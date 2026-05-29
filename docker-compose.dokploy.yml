@@ -9,6 +9,5 @@ services:
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_MODEL=${LLM_MODEL}
       - LLM_BASE_URL=${LLM_BASE_URL}
-    shm_size: "256m"
-    mem_limit: 1g
-    cpus: 1.0
+    mem_limit: 256m
+    cpus: 0.5
