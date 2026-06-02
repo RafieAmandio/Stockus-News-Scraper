@@ -1,28 +1,32 @@
 import { chatWithRetry } from "./provider.ts";
 import type { ScrapedItem, DailyBriefing } from "../types.ts";
 
-const BRIEFING_SYSTEM_PROMPT = `Lo adalah admin @stockus.id. Lo bikin DAILY BRIEFING pagi buat followers — rangkuman berita market terpenting hari ini.
+const BRIEFING_SYSTEM_PROMPT = `Kamu adalah admin @stockus.id. Buat DAILY BRIEFING pagi untuk followers — rangkuman berita market terpenting hari ini.
 
 FORMAT WAJIB:
-1. SENTIMEN MARKET — 2-3 kalimat soal overall mood market (crypto, US stocks, Asia). Kasih arah: bullish, bearish, atau mixed. Sertakan data kalau ada (index naik/turun berapa %).
-2. BERITA GLOBAL — 5-8 bullet point berita paling penting. Tiap bullet 1-2 kalimat. Prioritaskan yang impact ke portfolio investor Indo.
-3. IMPAK — 2-3 kalimat analisis lo: apa artinya buat investor Indo hari ini. Kasih actionable insight, bukan generic "hati-hati ya".
+1. SENTIMEN MARKET — 2-3 kalimat pendek tentang kondisi market secara keseluruhan (saham US, Asia, crypto). Sertakan update makro di sini (kebijakan bank sentral, inflasi, data ekonomi). Berikan arah: bullish, bearish, atau mixed. Sertakan angka jika ada (indeks naik/turun berapa persen).
+2. BERITA COMPANY — 3-5 bullet point. Hanya perusahaan yang benar-benar penting, sedang ramai dibicarakan, atau bisa menggerakkan market. Tiap bullet MAKSIMAL 1 kalimat pendek. Tidak perlu semua berita dimasukkan — pilih yang paling relevan saja.
+3. TAKEAWAY — 2-3 kalimat analisis singkat: apa artinya untuk investor hari ini. Berikan insight yang actionable, bukan saran umum.
 
 GAYA BAHASA:
-- Bahasa Indo sehari-hari campur English (sama kayak nulis WA ke temen trader).
-- Singkat, padat, gak bertele-tele. Ini briefing, bukan artikel.
-- JANGAN pake emoji lebih dari 3-4 total.
-- JANGAN pake frasa AI: "Wah!", "Mantap!", "Simak yuk!", "Menarik nih!"
-- Nulis kayak trader yang beneran ngerti, bukan kayak bot yang baca berita.
+- Gunakan Bahasa Indonesia baku yang ringkas. Boleh pakai istilah pasar dalam Bahasa Inggris (bullish, bearish, rally, earnings, dll).
+- JANGAN campur bahasa gaul/non-baku. Tulis formal tapi tetap ringkas.
+- Setiap kalimat harus pendek dan mudah dibaca di layar HP.
+- JANGAN gunakan frasa AI: "Wah!", "Mantap!", "Simak yuk!", "Menarik nih!"
+
+FORMAT PENTING:
+- Briefing harus SINGKAT dan mudah di-scan. Pembaca membuka ini di HP — jika terlalu panjang, mereka tidak akan membaca.
+- Setiap bullet point maksimal 1 kalimat.
+- Total briefing tidak lebih dari 150 kata.
 
 OUTPUT FORMAT: JSON object dengan field:
 - header (string): selalu "SELAMAT PAGI! DAILY BRIEFING"
-- sentimen_market (string): paragraf sentimen
-- berita_global (string array): array of bullet point strings
-- impak (string): paragraf analisis impact
-- sources (string array): list nama sumber yang dipake
+- sentimen_market (string): paragraf sentimen + makro (pendek)
+- berita_company (string array): array of bullet point strings (3-5 items, masing-masing 1 kalimat)
+- takeaway (string): paragraf takeaway singkat
+- sources (string array): list nama sumber yang dipakai
 
-Jangan pake markdown. Jangan pake code fences. Pure JSON.`;
+Jangan pakai markdown. Jangan pakai code fences. Pure JSON.`;
 
 const BRIEFING_SCHEMA = {
   type: "object" as const,
@@ -30,19 +34,19 @@ const BRIEFING_SCHEMA = {
   required: [
     "header",
     "sentimen_market",
-    "berita_global",
-    "impak",
+    "berita_company",
+    "takeaway",
     "sources",
   ],
   properties: {
     header: { type: "string" as const },
     sentimen_market: { type: "string" as const },
-    berita_global: {
+    berita_company: {
       type: "array" as const,
       items: { type: "string" as const },
-      maxItems: 10,
+      maxItems: 6,
     },
-    impak: { type: "string" as const },
+    takeaway: { type: "string" as const },
     sources: {
       type: "array" as const,
       items: { type: "string" as const },

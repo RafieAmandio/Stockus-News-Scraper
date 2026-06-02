@@ -24,8 +24,8 @@ export interface SubstackSource {
 export interface DailyBriefing {
   header: string;
   sentimen_market: string;
-  berita_global: string[];
-  impak: string;
+  berita_company: string[];
+  takeaway: string;
   sources: string[];
   generatedAt: string;
 }

@@ -43,21 +43,28 @@ export function formatCaptionCopyable(post: InstagramPost): string {
 }
 
 export function formatBriefingForTelegram(briefing: DailyBriefing): string {
-  const bullets = briefing.berita_global
-    .map((b) => `- ${escapeHtml(b)}`)
-    .join("\n");
+  const bullets = briefing.berita_company
+    .map((b) => `• ${escapeHtml(b)}`)
+    .join("\n\n");
 
   return [
     `<b>${escapeHtml(briefing.header)}</b>`,
     "",
-    `<b>SENTIMEN MARKET:</b>`,
+    "",
+    `🔥 <b>SENTIMEN MARKET</b>`,
+    "",
     escapeHtml(briefing.sentimen_market),
     "",
-    `<b>BERITA GLOBAL:</b>`,
+    "",
+    `🏢 <b>BERITA COMPANY</b>`,
+    "",
     bullets,
     "",
-    `<b>IMPAK:</b>`,
-    escapeHtml(briefing.impak),
+    "",
+    `📈 <b>TAKEAWAY</b>`,
+    "",
+    escapeHtml(briefing.takeaway),
+    "",
     "",
     `<i>Sources: ${escapeHtml(briefing.sources.join(", "))}</i>`,
   ].join("\n");

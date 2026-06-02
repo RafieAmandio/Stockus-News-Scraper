@@ -69,16 +69,16 @@ export function printBriefing(briefing: DailyBriefing): void {
   console.log(briefing.header);
   console.log(divider);
 
-  console.log(`\nSENTIMEN MARKET:`);
+  console.log(`\n🔥 SENTIMEN MARKET:\n`);
   console.log(briefing.sentimen_market);
 
-  console.log(`\nBERITA GLOBAL:`);
-  briefing.berita_global.forEach((b) => {
-    console.log(`- ${b}`);
+  console.log(`\n🏢 BERITA COMPANY:\n`);
+  briefing.berita_company.forEach((b) => {
+    console.log(`• ${b}\n`);
   });
 
-  console.log(`\nIMPAK:`);
-  console.log(briefing.impak);
+  console.log(`📈 TAKEAWAY:\n`);
+  console.log(briefing.takeaway);
 
   console.log(`\nSources: ${briefing.sources.join(", ")}`);
   console.log("");
@@ -89,17 +89,20 @@ export function saveBriefing(briefing: DailyBriefing, dir: string): void {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const filename = `${timestamp}_briefing.md`;
 
-  const bullets = briefing.berita_global.map((b) => `- ${b}`).join("\n");
+  const bullets = briefing.berita_company.map((b) => `• ${b}`).join("\n\n");
   const content = `# ${briefing.header}
 
-## Sentimen Market
+## 🔥 Sentimen Market
+
 ${briefing.sentimen_market}
 
-## Berita Global
+## 🏢 Berita Company
+
 ${bullets}
 
-## Impak
-${briefing.impak}
+## 📈 Takeaway
+
+${briefing.takeaway}
 
 ---
 Sources: ${briefing.sources.join(", ")}
