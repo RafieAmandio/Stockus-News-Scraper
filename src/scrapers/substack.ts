@@ -33,11 +33,26 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-export async function scrapeSubstacks(maxPerFeed = 5): Promise<ScrapedItem[]> {
+function isRecent(dateStr: string, maxAgeHours = 24): boolean {
+  try {
+    const published = new Date(dateStr).getTime();
+    if (isNaN(published)) return true;
+    const age = Date.now() - published;
+    return age < maxAgeHours * 60 * 60 * 1000;
+  } catch {
+    return true;
+  }
+}
+
+export async function scrapeSubstacks(
+  maxPerFeed = 10,
+  maxAgeHours = 48
+): Promise<ScrapedItem[]> {
   const sources = loadSubstackSources();
   if (sources.length === 0) return [];
 
   console.log(`  Feeds: ${sources.map((s) => s.name).join(", ")}`);
+  console.log(`  Filter: articles from last ${maxAgeHours}h only`);
 
   const parser = new XMLParser({
     ignoreAttributes: false,
@@ -67,8 +82,18 @@ export async function scrapeSubstacks(maxPerFeed = 5): Promise<ScrapedItem[]> {
       const articleList = Array.isArray(feedItems) ? feedItems : [feedItems];
 
       let count = 0;
+      let skipped = 0;
       for (const article of articleList.slice(0, maxPerFeed)) {
         const title = article.title ?? "";
+        const pubDate =
+          article.pubDate ?? article["dc:date"] ?? article.published ?? "";
+        const dateStr = typeof pubDate === "string" ? pubDate : "";
+
+        if (dateStr && !isRecent(dateStr, maxAgeHours)) {
+          skipped++;
+          continue;
+        }
+
         const raw =
           article["content:encoded"] ??
           article.description ??
@@ -77,8 +102,6 @@ export async function scrapeSubstacks(maxPerFeed = 5): Promise<ScrapedItem[]> {
           "";
         const content = stripHtml(typeof raw === "string" ? raw : "");
         const link = article.link?.["@_href"] ?? article.link ?? "";
-        const pubDate =
-          article.pubDate ?? article["dc:date"] ?? article.published ?? "";
         const author =
           article["dc:creator"] ?? article.author?.name ?? source.name;
 
@@ -89,13 +112,15 @@ export async function scrapeSubstacks(maxPerFeed = 5): Promise<ScrapedItem[]> {
           title: typeof title === "string" ? title : String(title),
           content: content.slice(0, 3000) || String(title),
           url: typeof link === "string" ? link : "",
-          date: typeof pubDate === "string" ? pubDate : undefined,
+          date: dateStr || undefined,
           author: typeof author === "string" ? author : source.name,
         });
         count++;
       }
 
-      console.log(`  ${source.name}: ${count} articles found`);
+      console.log(
+        `  ${source.name}: ${count} new articles${skipped > 0 ? ` (${skipped} older skipped)` : ""}`
+      );
     } catch (err) {
       console.error(`  Failed ${source.name}:`, (err as Error).message);
     }
