@@ -1,13 +1,14 @@
 import { scrapeTwitter } from "./scrapers/twitter.ts";
 import { scrapeWebsites } from "./scrapers/websites.ts";
 import { scrapeSubstacks } from "./scrapers/substack.ts";
+import { scrapeMktNews } from "./scrapers/mktnews.ts";
 import { closeBrowser } from "./scrapers/browser.ts";
 import { generateInstagramPost } from "./ai/instagram.ts";
 import { generateDailyBriefing } from "./ai/briefing.ts";
 import { printPost, savePosts, printBriefing, saveBriefing } from "./output/formatter.ts";
 import type { ScrapedItem, InstagramPost } from "./types.ts";
 
-type Source = "twitter" | "web" | "substack" | "all";
+type Source = "twitter" | "web" | "substack" | "mktnews" | "all";
 type Mode = "posts" | "briefing";
 
 function parseArgs(): { source: Source; limit: number; save: boolean; mode: Mode } {
@@ -20,7 +21,7 @@ function parseArgs(): { source: Source; limit: number; save: boolean; mode: Mode
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--source" && args[i + 1]) {
       const val = args[i + 1];
-      if (val === "twitter" || val === "web" || val === "substack" || val === "all") source = val;
+      if (val === "twitter" || val === "web" || val === "substack" || val === "mktnews" || val === "all") source = val;
       i++;
     }
     if (args[i] === "--limit" && args[i + 1]) {
@@ -78,6 +79,13 @@ async function main() {
     const articles = await scrapeSubstacks();
     console.log(`[Substack] Got ${articles.length} items\n`);
     scraped.push(...articles);
+  }
+
+  if (source === "mktnews" || source === "all") {
+    console.log("[MKTNews] Fetching flash news...");
+    const flashes = await scrapeMktNews();
+    console.log(`[MKTNews] Got ${flashes.length} items\n`);
+    scraped.push(...flashes);
   }
 
   scraped = deduplicate(scraped).slice(0, limit);

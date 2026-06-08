@@ -8,6 +8,7 @@
     "scrape:twitter": "node --experimental-strip-types --no-warnings src/index.ts --source twitter",
     "scrape:web": "node --experimental-strip-types --no-warnings src/index.ts --source web",
     "scrape:substack": "node --experimental-strip-types --no-warnings src/index.ts --source substack",
+    "scrape:mktnews": "node --experimental-strip-types --no-warnings src/index.ts --source mktnews",
     "briefing": "node --experimental-strip-types --no-warnings src/index.ts --mode briefing",
     "briefing:save": "node --experimental-strip-types --no-warnings src/index.ts --mode briefing --save",
     "send-briefing": "node --experimental-strip-types --no-warnings src/bot.ts --send-briefing"

@@ -6,6 +6,7 @@ import { config } from "./config.ts";
 import { scrapeTwitter } from "./scrapers/twitter.ts";
 import { scrapeWebsites } from "./scrapers/websites.ts";
 import { scrapeSubstacks } from "./scrapers/substack.ts";
+import { scrapeMktNews } from "./scrapers/mktnews.ts";
 import { closeBrowser } from "./scrapers/browser.ts";
 import { generateInstagramPost } from "./ai/instagram.ts";
 import { generateDailyBriefing } from "./ai/briefing.ts";
@@ -73,12 +74,19 @@ async function scrapeAll(limit: number): Promise<ScrapedItem[]> {
     console.error("Substack scrape failed:", (err as Error).message);
   }
 
+  try {
+    const flashNews = await scrapeMktNews();
+    scraped.push(...flashNews);
+  } catch (err) {
+    console.error("MKTNews scrape failed:", (err as Error).message);
+  }
+
   return deduplicate(scraped).slice(0, limit);
 }
 
 async function handleScrape(
   ctx: Context,
-  source: "twitter" | "web" | "substack" | "all",
+  source: "twitter" | "web" | "substack" | "mktnews" | "all",
   limit: number
 ) {
   const chatId = ctx.chat?.id;
@@ -93,10 +101,11 @@ async function handleScrape(
 
   try {
     const labels: Record<string, string> = {
-      all: "Twitter + Web + Substack",
+      all: "Twitter + Web + Substack + MKTNews",
       twitter: "Twitter",
       web: "Websites",
       substack: "Substack RSS",
+      mktnews: "MKTNews Flash",
     };
     const status = await ctx.reply(
       `Scraping ${labels[source]}... This may take a few minutes.`
@@ -132,6 +141,16 @@ async function handleScrape(
       );
       const articles = await scrapeSubstacks();
       scraped.push(...articles);
+    }
+
+    if (source === "mktnews" || source === "all") {
+      await ctx.api.editMessageText(
+        chatId,
+        status.message_id,
+        `Fetching MKTNews flash...${scraped.length > 0 ? ` (${scraped.length} items so far)` : ""}`
+      );
+      const flashNews = await scrapeMktNews();
+      scraped.push(...flashNews);
     }
 
     scraped = deduplicate(scraped).slice(0, limit);
@@ -302,10 +321,11 @@ bot.command("start", async (ctx) => {
       "Scrape financial news and generate @stockus.id Instagram posts.",
       "",
       "<b>Commands:</b>",
-      "/news — Scrape all sources (Twitter + Web + Substack)",
+      "/news — Scrape all sources (Twitter + Web + Substack + MKTNews)",
       "/twitter — Scrape Twitter accounts only",
       "/web — Scrape websites only",
       "/substack — Scrape Substack RSS only",
+      "/mktnews — Scrape MKTNews flash headlines",
       "/briefing — Get daily market briefing",
       "/subscribe — Get daily briefing automatically",
       "/unsubscribe — Stop daily briefing",
@@ -325,12 +345,14 @@ bot.command("help", async (ctx) => {
       "/twitter — Twitter only",
       "/web — Websites only",
       "/substack — Substack RSS only",
+      "/mktnews — MKTNews flash headlines",
       "",
       "<b>With limits:</b>",
       "/news3 — All sources, max 3 posts",
       "/twitter5 — Twitter, max 5 posts",
       "/web2 — Web, max 2 posts",
       "/substack3 — Substack, max 3 posts",
+      "/mktnews5 — MKTNews, max 5 posts",
       "",
       "<b>Daily Briefing:</b>",
       "/briefing — Generate market briefing now",
@@ -397,6 +419,11 @@ bot.hears(/^\/substack(\d+)?$/, async (ctx) => {
   await handleScrape(ctx, "substack", limit);
 });
 
+bot.hears(/^\/mktnews(\d+)?$/, async (ctx) => {
+  const limit = parseInt(ctx.match[1] ?? "10", 10);
+  await handleScrape(ctx, "mktnews", limit);
+});
+
 bot.catch((err) => {
   console.error("Bot error:", err);
 });
@@ -419,10 +446,11 @@ if (process.argv.includes("--send-briefing")) {
   console.log("StockUs News Scraper Bot starting...");
 
   await bot.api.setMyCommands([
-    { command: "news", description: "Scrape all sources (Twitter + Web + Substack)" },
+    { command: "news", description: "Scrape all sources (Twitter + Web + Substack + MKTNews)" },
     { command: "twitter", description: "Scrape Twitter accounts only" },
     { command: "web", description: "Scrape websites only" },
     { command: "substack", description: "Scrape Substack RSS feeds only" },
+    { command: "mktnews", description: "Scrape MKTNews flash headlines" },
     { command: "briefing", description: "Get daily market briefing" },
     { command: "subscribe", description: "Get daily briefing automatically" },
     { command: "unsubscribe", description: "Stop daily briefing" },
