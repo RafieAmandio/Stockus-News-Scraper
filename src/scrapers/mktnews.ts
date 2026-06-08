@@ -23,6 +23,18 @@ function isRecent(dateStr: string, maxAgeHours: number): boolean {
   }
 }
 
+const US_SYMBOLS = new Set(["S&P500", "SPX", "DJI", "Dow", "Nasdaq", "Russell", "DXY"]);
+
+function isUSRelevant(impact: MktNewsFlashItem["impact"]): boolean {
+  if (!impact || impact.length === 0) return false;
+  return impact.some(
+    (i) =>
+      i.symbol.endsWith(".O") ||
+      i.symbol.endsWith(".N") ||
+      US_SYMBOLS.has(i.symbol)
+  );
+}
+
 function formatImpact(
   impact: MktNewsFlashItem["impact"]
 ): string {
@@ -66,6 +78,8 @@ export async function scrapeMktNews(
       skipped++;
       continue;
     }
+
+    if (!isUSRelevant(entry.impact)) continue;
 
     const content = entry.data.content?.trim();
     if (!content || content.length < 20) continue;
