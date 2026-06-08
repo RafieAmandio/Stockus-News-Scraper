@@ -460,12 +460,14 @@ if (process.argv.includes("--send-briefing")) {
   bot.start();
   console.log("Bot is running. Press Ctrl+C to stop.");
 
-  // Daily briefing at 07:00 WIB (00:00 UTC)
-  cron.schedule("0 0 * * *", () => {
-    console.log(`[Cron] Sending daily briefing — ${new Date().toISOString()}`);
-    sendBriefingToSubscribers().catch((err) => {
-      console.error("[Cron] Briefing failed:", (err as Error).message);
+  // Briefings at 07:00, 12:00, 18:00 WIB (00:00, 05:00, 11:00 UTC)
+  for (const hour of ["0", "5", "11"]) {
+    cron.schedule(`0 ${hour} * * *`, () => {
+      console.log(`[Cron] Sending briefing — ${new Date().toISOString()}`);
+      sendBriefingToSubscribers().catch((err) => {
+        console.error("[Cron] Briefing failed:", (err as Error).message);
+      });
     });
-  });
-  console.log("Daily briefing scheduled at 07:00 WIB (00:00 UTC).");
+  }
+  console.log("Briefings scheduled at 07:00, 12:00, 18:00 WIB.");
 }
