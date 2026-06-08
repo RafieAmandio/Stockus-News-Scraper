@@ -1,4 +1,4 @@
-import type { InstagramPost, DailyBriefing } from "../types.ts";
+import type { InstagramPost, DailyBriefing, StockInsight } from "../types.ts";
 
 function escapeHtml(text: string): string {
   return text
@@ -47,10 +47,23 @@ export function formatBriefingForTelegram(briefing: DailyBriefing): string {
     .map((b) => `• ${escapeHtml(b)}`)
     .join("\n\n");
 
-  return [
+  const parts = [
     `<b>${escapeHtml(briefing.header)}</b>`,
     "",
     "",
+  ];
+
+  if (briefing.pergerakan_indeks && briefing.pergerakan_indeks !== "Data indeks belum tersedia") {
+    parts.push(
+      `📊 <b>PERGERAKAN INDEKS</b>`,
+      "",
+      escapeHtml(briefing.pergerakan_indeks),
+      "",
+      "",
+    );
+  }
+
+  parts.push(
     `🔥 <b>SENTIMEN MARKET</b>`,
     "",
     escapeHtml(briefing.sentimen_market),
@@ -64,8 +77,24 @@ export function formatBriefingForTelegram(briefing: DailyBriefing): string {
     `📈 <b>TAKEAWAY</b>`,
     "",
     escapeHtml(briefing.takeaway),
+  );
+
+  return parts.join("\n");
+}
+
+export function formatInsightsForTelegram(insight: StockInsight): string {
+  const items = insight.insights.map((item) => {
+    const tickerSuffix = item.ticker ? ` ($${escapeHtml(item.ticker)})` : "";
+    return [
+      `📌 <b>${escapeHtml(item.judul)}</b>${tickerSuffix}`,
+      "",
+      escapeHtml(item.ringkasan),
+    ].join("\n");
+  });
+
+  return [
+    `<b>${escapeHtml(insight.header)}</b>`,
     "",
-    "",
-    `<i>Sources: ${escapeHtml(briefing.sources.join(", "))}</i>`,
+    items.join("\n\n\n"),
   ].join("\n");
 }

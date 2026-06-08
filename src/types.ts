@@ -23,9 +23,21 @@ export interface SubstackSource {
 
 export interface DailyBriefing {
   header: string;
+  pergerakan_indeks: string;
   sentimen_market: string;
   berita_company: string[];
   takeaway: string;
-  sources: string[];
+  generatedAt: string;
+}
+
+export interface StockInsightItem {
+  judul: string;
+  ringkasan: string;
+  ticker?: string;
+}
+
+export interface StockInsight {
+  header: string;
+  insights: StockInsightItem[];
   generatedAt: string;
 }

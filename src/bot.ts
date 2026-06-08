@@ -10,7 +10,9 @@ import { scrapeMktNews } from "./scrapers/mktnews.ts";
 import { closeBrowser } from "./scrapers/browser.ts";
 import { generateInstagramPost } from "./ai/instagram.ts";
 import { generateDailyBriefing } from "./ai/briefing.ts";
-import { formatPostForTelegram, formatCaptionCopyable, formatBriefingForTelegram } from "./output/telegram.ts";
+import { generateStockInsights } from "./ai/insights.ts";
+import { fetchUSIndices, formatIndicesLine } from "./scrapers/indices.ts";
+import { formatPostForTelegram, formatCaptionCopyable, formatBriefingForTelegram, formatInsightsForTelegram } from "./output/telegram.ts";
 import type { ScrapedItem, InstagramPost } from "./types.ts";
 
 if (!config.TELEGRAM_BOT_TOKEN) {
@@ -237,7 +239,10 @@ async function handleBriefing(ctx: Context) {
       `Found ${scraped.length} items. Generating briefing with AI...`
     );
 
-    const briefing = await generateDailyBriefing(scraped);
+    const indices = await fetchUSIndices();
+    const indicesLine = formatIndicesLine(indices);
+    const briefing = await generateDailyBriefing(scraped, indicesLine);
+    briefing.pergerakan_indeks = indicesLine;
     await ctx.api.deleteMessage(chatId, status.message_id);
 
     const formatted = formatBriefingForTelegram(briefing);
@@ -289,7 +294,10 @@ export async function sendBriefingToSubscribers(): Promise<void> {
     return;
   }
 
-  const briefing = await generateDailyBriefing(scraped);
+  const indices = await fetchUSIndices();
+  const indicesLine = formatIndicesLine(indices);
+  const briefing = await generateDailyBriefing(scraped, indicesLine);
+  briefing.pergerakan_indeks = indicesLine;
   const formatted = formatBriefingForTelegram(briefing);
   const parts = splitTelegramMessage(formatted);
 
@@ -313,6 +321,51 @@ export async function sendBriefingToSubscribers(): Promise<void> {
   console.log("Briefing sent to all subscribers.");
 }
 
+export async function sendInsightsToSubscribers(
+  timeLabel: "SIANG" | "SORE"
+): Promise<void> {
+  if (subscribers.size === 0) {
+    console.log("No subscribers to send insights to.");
+    return;
+  }
+
+  console.log(`Sending ${timeLabel} insights to ${subscribers.size} subscriber(s)...`);
+
+  let substackItems: ScrapedItem[] = [];
+  try {
+    substackItems = await scrapeSubstacks(10, 72);
+  } catch (err) {
+    console.error("Substack scrape failed:", (err as Error).message);
+  }
+
+  if (substackItems.length === 0) {
+    console.log("No Substack content available. Skipping insights send.");
+    return;
+  }
+
+  const insight = await generateStockInsights(substackItems, timeLabel);
+  const formatted = formatInsightsForTelegram(insight);
+  const parts = splitTelegramMessage(formatted);
+
+  for (const chatId of subscribers) {
+    try {
+      for (const part of parts) {
+        await bot.api.sendMessage(chatId, part, { parse_mode: "HTML" });
+      }
+      console.log(`  Sent to ${chatId}`);
+    } catch (err) {
+      console.error(`  Failed to send to ${chatId}:`, (err as Error).message);
+      if ((err as { error_code?: number }).error_code === 403) {
+        subscribers.delete(chatId);
+        saveSubscribers(subscribers);
+        console.log(`  Removed ${chatId} (blocked bot)`);
+      }
+    }
+  }
+
+  console.log(`${timeLabel} insights sent to all subscribers.`);
+}
+
 bot.command("start", async (ctx) => {
   await ctx.reply(
     [
@@ -327,8 +380,9 @@ bot.command("start", async (ctx) => {
       "/substack — Scrape Substack RSS only",
       "/mktnews — Scrape MKTNews flash headlines",
       "/briefing — Get daily market briefing",
-      "/subscribe — Get daily briefing automatically",
-      "/unsubscribe — Stop daily briefing",
+      "/insights — Get stock insights from Substack",
+      "/subscribe — Get daily updates automatically",
+      "/unsubscribe — Stop daily updates",
       "/help — Show all commands",
     ].join("\n"),
     { parse_mode: "HTML" }
@@ -354,10 +408,11 @@ bot.command("help", async (ctx) => {
       "/substack3 — Substack, max 3 posts",
       "/mktnews5 — MKTNews, max 5 posts",
       "",
-      "<b>Daily Briefing:</b>",
-      "/briefing — Generate market briefing now",
-      "/subscribe — Get daily briefing automatically",
-      "/unsubscribe — Stop daily briefing",
+      "<b>Market Updates:</b>",
+      "/briefing — Morning market briefing (with index data)",
+      "/insights — Stock insights from Substack",
+      "/subscribe — Get daily updates (07:00 briefing, 12:00 &amp; 18:00 insights)",
+      "/unsubscribe — Stop daily updates",
       "",
       "Each post includes: headline, caption, hashtags, and carousel slide texts.",
     ].join("\n"),
@@ -399,6 +454,40 @@ bot.command("briefing", async (ctx) => {
   await handleBriefing(ctx);
 });
 
+bot.command("insights", async (ctx) => {
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+  if (activeSessions.has(chatId)) {
+    await ctx.reply("A task is already running. Please wait.");
+    return;
+  }
+  activeSessions.add(chatId);
+  try {
+    const status = await ctx.reply("Generating stock insights from Substack...");
+    const substackItems = await scrapeSubstacks(10, 72);
+    if (substackItems.length === 0) {
+      await ctx.api.editMessageText(chatId, status.message_id, "No Substack articles available.");
+      return;
+    }
+    await ctx.api.editMessageText(chatId, status.message_id, `Found ${substackItems.length} articles. Generating insights...`);
+    const insight = await generateStockInsights(substackItems, "SIANG");
+    await ctx.api.deleteMessage(chatId, status.message_id);
+    const formatted = formatInsightsForTelegram(insight);
+    if (formatted.length <= 4096) {
+      await ctx.reply(formatted, { parse_mode: "HTML" });
+    } else {
+      for (const part of splitTelegramMessage(formatted)) {
+        await ctx.reply(part, { parse_mode: "HTML" });
+      }
+    }
+  } catch (err) {
+    console.error("Insights error:", err);
+    await ctx.reply(`Error: ${(err as Error).message}`);
+  } finally {
+    activeSessions.delete(chatId);
+  }
+});
+
 bot.hears(/^\/news(\d+)?$/, async (ctx) => {
   const limit = parseInt(ctx.match[1] ?? "10", 10);
   await handleScrape(ctx, "all", limit);
@@ -434,12 +523,19 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
-// If run with --send-briefing flag, send to all subscribers and exit
 if (process.argv.includes("--send-briefing")) {
   sendBriefingToSubscribers()
     .then(() => process.exit(0))
     .catch((err) => {
       console.error("Failed to send briefing:", err);
+      process.exit(1);
+    });
+} else if (process.argv.includes("--send-insights")) {
+  const label = process.argv.includes("--sore") ? "SORE" as const : "SIANG" as const;
+  sendInsightsToSubscribers(label)
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("Failed to send insights:", err);
       process.exit(1);
     });
 } else {
@@ -452,22 +548,38 @@ if (process.argv.includes("--send-briefing")) {
     { command: "substack", description: "Scrape Substack RSS feeds only" },
     { command: "mktnews", description: "Scrape MKTNews flash headlines" },
     { command: "briefing", description: "Get daily market briefing" },
-    { command: "subscribe", description: "Get daily briefing automatically" },
-    { command: "unsubscribe", description: "Stop daily briefing" },
+    { command: "insights", description: "Get stock insights from Substack" },
+    { command: "subscribe", description: "Get daily updates automatically" },
+    { command: "unsubscribe", description: "Stop daily updates" },
     { command: "help", description: "Show all commands" },
   ]);
 
   bot.start();
   console.log("Bot is running. Press Ctrl+C to stop.");
 
-  // Briefings at 07:00, 12:00, 18:00 WIB (00:00, 05:00, 11:00 UTC)
-  for (const hour of ["0", "5", "11"]) {
-    cron.schedule(`0 ${hour} * * *`, () => {
-      console.log(`[Cron] Sending briefing — ${new Date().toISOString()}`);
-      sendBriefingToSubscribers().catch((err) => {
-        console.error("[Cron] Briefing failed:", (err as Error).message);
-      });
+  // Morning briefing at 07:00 WIB (00:00 UTC)
+  cron.schedule("0 0 * * *", () => {
+    console.log(`[Cron] Sending MORNING BRIEFING — ${new Date().toISOString()}`);
+    sendBriefingToSubscribers().catch((err) => {
+      console.error("[Cron] Briefing failed:", (err as Error).message);
     });
-  }
-  console.log("Briefings scheduled at 07:00, 12:00, 18:00 WIB.");
+  });
+
+  // Midday insights at 12:00 WIB (05:00 UTC)
+  cron.schedule("0 5 * * *", () => {
+    console.log(`[Cron] Sending SIANG INSIGHTS — ${new Date().toISOString()}`);
+    sendInsightsToSubscribers("SIANG").catch((err) => {
+      console.error("[Cron] Siang insights failed:", (err as Error).message);
+    });
+  });
+
+  // Evening insights at 18:00 WIB (11:00 UTC)
+  cron.schedule("0 11 * * *", () => {
+    console.log(`[Cron] Sending SORE INSIGHTS — ${new Date().toISOString()}`);
+    sendInsightsToSubscribers("SORE").catch((err) => {
+      console.error("[Cron] Sore insights failed:", (err as Error).message);
+    });
+  });
+
+  console.log("Schedule: 07:00 WIB briefing, 12:00 WIB insights, 18:00 WIB insights.");
 }

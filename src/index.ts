@@ -2,6 +2,7 @@ import { scrapeTwitter } from "./scrapers/twitter.ts";
 import { scrapeWebsites } from "./scrapers/websites.ts";
 import { scrapeSubstacks } from "./scrapers/substack.ts";
 import { scrapeMktNews } from "./scrapers/mktnews.ts";
+import { fetchUSIndices, formatIndicesLine } from "./scrapers/indices.ts";
 import { closeBrowser } from "./scrapers/browser.ts";
 import { generateInstagramPost } from "./ai/instagram.ts";
 import { generateDailyBriefing } from "./ai/briefing.ts";
@@ -96,8 +97,14 @@ async function main() {
   }
 
   if (mode === "briefing") {
+    console.log(`[Indices] Fetching US index data...`);
+    const indices = await fetchUSIndices();
+    const indicesLine = formatIndicesLine(indices);
+    console.log(`[Indices] ${indicesLine}\n`);
+
     console.log(`[AI] Generating daily briefing from ${scraped.length} items...\n`);
-    const briefing = await generateDailyBriefing(scraped);
+    const briefing = await generateDailyBriefing(scraped, indicesLine);
+    briefing.pergerakan_indeks = indicesLine;
     printBriefing(briefing);
     if (save) {
       saveBriefing(briefing, "output");

@@ -26,7 +26,6 @@ OUTPUT FORMAT: JSON object dengan field:
 - sentimen_market (string): paragraf sentimen + makro (pendek)
 - berita_company (string array): array of bullet point strings (3-5 items, masing-masing 1 kalimat)
 - takeaway (string): paragraf takeaway singkat
-- sources (string array): list nama sumber yang dipakai
 
 Jangan pakai markdown. Jangan pakai code fences. Pure JSON.`;
 
@@ -38,7 +37,6 @@ const BRIEFING_SCHEMA = {
     "sentimen_market",
     "berita_company",
     "takeaway",
-    "sources",
   ],
   properties: {
     header: { type: "string" as const },
@@ -49,15 +47,12 @@ const BRIEFING_SCHEMA = {
       maxItems: 6,
     },
     takeaway: { type: "string" as const },
-    sources: {
-      type: "array" as const,
-      items: { type: "string" as const },
-    },
   },
 };
 
 export async function generateDailyBriefing(
-  items: ScrapedItem[]
+  items: ScrapedItem[],
+  indicesContext?: string
 ): Promise<DailyBriefing> {
   const newsBlock = items
     .map((item, i) => {
@@ -70,7 +65,10 @@ export async function generateDailyBriefing(
     })
     .join("\n\n---\n\n");
 
-  const userMsg = `Bikin Daily Briefing dari ${items.length} berita ini:\n\n${newsBlock}\n\nReturn JSON.`;
+  const indexPreamble = indicesContext
+    ? `DATA INDEKS HARI INI:\n${indicesContext}\n\n`
+    : "";
+  const userMsg = `${indexPreamble}Bikin Daily Briefing dari ${items.length} berita ini:\n\n${newsBlock}\n\nReturn JSON.`;
 
   const raw = await chatWithRetry({
     system: BRIEFING_SYSTEM_PROMPT,
@@ -90,6 +88,7 @@ export async function generateDailyBriefing(
 
   return {
     ...parsed,
+    pergerakan_indeks: "",
     generatedAt: new Date().toISOString(),
   };
 }

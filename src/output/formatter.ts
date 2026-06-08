@@ -69,6 +69,11 @@ export function printBriefing(briefing: DailyBriefing): void {
   console.log(briefing.header);
   console.log(divider);
 
+  if (briefing.pergerakan_indeks) {
+    console.log(`\n📊 PERGERAKAN INDEKS:\n`);
+    console.log(briefing.pergerakan_indeks);
+  }
+
   console.log(`\n🔥 SENTIMEN MARKET:\n`);
   console.log(briefing.sentimen_market);
 
@@ -79,8 +84,6 @@ export function printBriefing(briefing: DailyBriefing): void {
 
   console.log(`📈 TAKEAWAY:\n`);
   console.log(briefing.takeaway);
-
-  console.log(`\nSources: ${briefing.sources.join(", ")}`);
   console.log("");
 }
 
@@ -90,9 +93,13 @@ export function saveBriefing(briefing: DailyBriefing, dir: string): void {
   const filename = `${timestamp}_briefing.md`;
 
   const bullets = briefing.berita_company.map((b) => `• ${b}`).join("\n\n");
+  const indexSection = briefing.pergerakan_indeks
+    ? `## 📊 Pergerakan Indeks\n\n${briefing.pergerakan_indeks}\n\n`
+    : "";
+
   const content = `# ${briefing.header}
 
-## 🔥 Sentimen Market
+${indexSection}## 🔥 Sentimen Market
 
 ${briefing.sentimen_market}
 
@@ -105,7 +112,6 @@ ${bullets}
 ${briefing.takeaway}
 
 ---
-Sources: ${briefing.sources.join(", ")}
 Generated: ${briefing.generatedAt}
 `;
 
