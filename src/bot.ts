@@ -1,5 +1,5 @@
 import { Bot, Context } from "grammy";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import cron from "node-cron";
 import { config } from "./config.ts";
@@ -23,7 +23,9 @@ const bot = new Bot(config.TELEGRAM_BOT_TOKEN);
 
 const activeSessions = new Set<number>();
 
-const SUBSCRIBERS_FILE = join(process.cwd(), "subscribers.json");
+const DATA_DIR = join(process.cwd(), "data");
+mkdirSync(DATA_DIR, { recursive: true });
+const SUBSCRIBERS_FILE = join(DATA_DIR, "subscribers.json");
 
 function loadSubscribers(): Set<number> {
   try {
