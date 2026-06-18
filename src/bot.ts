@@ -26,6 +26,43 @@ const activeSessions = new Set<number>();
 const DATA_DIR = join(process.cwd(), "data");
 mkdirSync(DATA_DIR, { recursive: true });
 const SUBSCRIBERS_FILE = join(DATA_DIR, "subscribers.json");
+const SENT_ARTICLES_FILE = join(DATA_DIR, "sent_articles.json");
+
+interface SentArticlesData {
+  date: string;
+  keys: string[];
+}
+
+function articleKey(item: ScrapedItem): string {
+  return (item.title ?? item.content.slice(0, 100)).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function loadSentArticles(): Set<string> {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    if (existsSync(SENT_ARTICLES_FILE)) {
+      const data = JSON.parse(readFileSync(SENT_ARTICLES_FILE, "utf-8")) as SentArticlesData;
+      if (data.date === today) return new Set(data.keys);
+    }
+  } catch {}
+  return new Set();
+}
+
+function saveSentArticles(keys: Set<string>): void {
+  const today = new Date().toISOString().slice(0, 10);
+  writeFileSync(SENT_ARTICLES_FILE, JSON.stringify({ date: today, keys: [...keys] }, null, 2));
+}
+
+function filterAlreadySent(items: ScrapedItem[]): ScrapedItem[] {
+  const sent = loadSentArticles();
+  return items.filter((item) => !sent.has(articleKey(item)));
+}
+
+function markAsSent(items: ScrapedItem[]): void {
+  const sent = loadSentArticles();
+  for (const item of items) sent.add(articleKey(item));
+  saveSentArticles(sent);
+}
 
 function loadSubscribers(): Set<number> {
   try {
@@ -300,6 +337,7 @@ export async function sendBriefingToSubscribers(): Promise<void> {
   const indicesLine = formatIndicesLine(indices);
   const briefing = await generateDailyBriefing(scraped, indicesLine);
   briefing.pergerakan_indeks = indicesLine;
+  markAsSent(scraped);
   const formatted = formatBriefingForTelegram(briefing);
   const parts = splitTelegramMessage(formatted);
 
@@ -340,12 +378,16 @@ export async function sendInsightsToSubscribers(
     console.error("Substack scrape failed:", (err as Error).message);
   }
 
-  if (substackItems.length === 0) {
-    console.log("No Substack content available. Skipping insights send.");
+  const fresh = filterAlreadySent(substackItems);
+  console.log(`  ${substackItems.length} total articles, ${fresh.length} not yet sent today`);
+
+  if (fresh.length === 0) {
+    console.log("No new Substack content since last send. Skipping insights.");
     return;
   }
 
-  const insight = await generateStockInsights(substackItems, timeLabel);
+  const insight = await generateStockInsights(fresh, timeLabel);
+  markAsSent(fresh);
   const formatted = formatInsightsForTelegram(insight);
   const parts = splitTelegramMessage(formatted);
 
